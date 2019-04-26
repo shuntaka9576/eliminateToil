@@ -1,0 +1,24 @@
+# appveyor.yml
+build: off
+
+clone_folder: c:\gopath\src\github.com\shuntaka9576\eliminateToil
+
+environment:
+  GOPATH: c:\gopath
+
+stack: go 1.12.3 x64
+
+before_test:
+  - choco install make -y
+  - choco install sed -y
+  - set GO111MODULE=on
+  - make build-win
+
+test_script:
+  - scripts\windows\test.bat
+  - dir
+
+artifacts:
+  - path: build
+    name: eliminateToilBinary
+    type: zip

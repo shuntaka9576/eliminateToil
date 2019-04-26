@@ -1,0 +1,14 @@
+[nikkei]
+  email = "hogehoge@gmail.com"
+  password = "hogehoge"
+  start = "201811"
+  times = 6
+
+[chromeDriver]
+  version = "72.0.3626.69"
+  # version = "71.0.3578.80"
+
+# 説明
+# settings.tomlは以下のパスに配置可能
+#  * eliminateToil.exeと同じパス
+#  * %APPDATA%\eliminateToil
