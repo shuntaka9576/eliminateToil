@@ -17,20 +17,23 @@ type PngFile struct {
 }
 
 func ConcatImage(picDir string) error {
-	imageobjs, _ := DecodePngDir(picDir)
+	pngs, err := DecodePngDir(picDir)
+	if err != nil {
+		return xerrors.Errorf("faild to decode pngs: %v", err)
+	}
 
 	var pngside, pngvartical, outputvartical, outputside int
 	switch {
-	case len(imageobjs) == 0:
-		os.Exit(1)
+	case len(pngs) == 0:
+		return xerrors.Errorf("no image directory")
 	default:
-		pngside = imageobjs[0].Image.Bounds().Dx()
-		pngvartical = imageobjs[0].Image.Bounds().Dy()
+		pngside = pngs[0].Image.Bounds().Dx()
+		pngvartical = pngs[0].Image.Bounds().Dy()
 		outputside = pngside * 2
-		if len(imageobjs)%2 == 1 {
-			outputvartical = pngvartical * ((len(imageobjs) + 1) / 2)
+		if len(pngs)%2 == 1 {
+			outputvartical = pngvartical * ((len(pngs) + 1) / 2)
 		} else {
-			outputvartical = pngvartical * (len(imageobjs) / 2)
+			outputvartical = pngvartical * (len(pngs) / 2)
 		}
 	}
 	outputimg := image.Rectangle{image.Point{0, 0}, image.Point{outputside, outputvartical}}
@@ -44,14 +47,16 @@ func ConcatImage(picDir string) error {
 	}
 
 	rgba := image.NewRGBA(outputimg)
-	for i := 0; i < len(imageobjs); i++ {
-		draw.Draw(rgba, Recpositions[i], imageobjs[i].Image, image.Point{0, 0}, draw.Src)
+	for i := 0; i < len(pngs); i++ {
+		draw.Draw(rgba, Recpositions[i], pngs[i].Image, image.Point{0, 0}, draw.Src)
 	}
-	outfileName := imageobjs[0].ImageName[:6] + "-" + imageobjs[len(imageobjs)-1].ImageName[:6]
-	out, _ := os.Create(outfileName + ".png")
+	outfileName := pngs[0].ImageName[:6] + "-" + pngs[len(pngs)-1].ImageName[:6]
+	out, err := os.Create(outfileName + ".png")
+	if err != nil {
+		return xerrors.Errorf("faild to create image file: %v", err)
+	}
 
-	png.Encode(out, rgba)
-	return nil
+	return png.Encode(out, rgba)
 }
 
 func CalculateImagePoint(p0 image.Point, side, vartical int) (p1, p2, p3, p4, p5 image.Point) {
