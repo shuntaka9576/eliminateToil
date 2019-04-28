@@ -11,14 +11,14 @@ stack: go 1.12.3 x64
 before_test:
   - choco install make -y
   - choco install sed -y
+  - choco install zip -y
   - set GO111MODULE=on
-  - make build-win
+  - scripts\windows\build.bat
+  - zip -l -r -j eliminateToilBinary.zip build/* # change to CRLF
 
 test_script:
   - scripts\windows\test.bat
   - dir
 
 artifacts:
-  - path: build
-    name: eliminateToilBinary
-    type: zip
+  - path: eliminateToilBinary.zip

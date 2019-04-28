@@ -2,10 +2,21 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"io"
 	"os"
 	"path/filepath"
 )
+
+var UTF8_BOM = []byte{239, 187, 191}
+
+func hasBOM(in []byte) bool {
+	return bytes.HasPrefix(in, UTF8_BOM)
+}
+
+func stripBOM(in []byte) []byte {
+	return bytes.TrimPrefix(in, UTF8_BOM)
+}
 
 func Unzip(src, dest string) error {
 	r, err := zip.OpenReader(src)

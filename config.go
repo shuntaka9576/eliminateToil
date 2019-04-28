@@ -2,6 +2,7 @@ package main
 
 import (
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -50,13 +51,23 @@ func (cfg *config) load() error {
 		If it does not exist, create it as the current.
 	*/
 	if _, err := os.Stat(configFile); err == nil {
-		_, err := toml.DecodeFile(configFile, cfg)
+		config, err := ioutil.ReadFile(configFile)
+		if err != nil {
+			return xerrors.Errorf("read config file error: %v", err)
+		}
+
+		_, err = toml.Decode(string(stripBOM(config)), cfg)
 		if err != nil {
 			return xerrors.Errorf("toml config parse error:%v", err)
 		}
 	} else if _, err := os.Stat(filepath.Join(dir, configFile)); err == nil {
 		if err == nil {
-			_, err := toml.DecodeFile(filepath.Join(dir, configFile), cfg)
+			config, err := ioutil.ReadFile(filepath.Join(dir, configFile))
+			if err != nil {
+				return xerrors.Errorf("read config file error: %v", err)
+			}
+
+			_, err = toml.Decode(string(stripBOM(config)), cfg)
 			if err != nil {
 				return xerrors.Errorf("toml config parse error:%v", err)
 			}
