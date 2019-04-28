@@ -1,7 +1,6 @@
 build:
 	go build -o ./build/eliminateToil *.go
 	./build/eliminateToil nikkei
-	ls
 build-win:
 	go build -o ./build/eliminateToil.exe *.go
 	cp settings.toml ./build
