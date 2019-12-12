@@ -30,52 +30,64 @@ func cmdNikkei(c *cli.Context) error {
 		return xerrors.Errorf("create image cache directory error: %v", err)
 	}
 
-	err = RunChromeDriver(cfg, cacheDir)
+	// initialize chrome driver
+	driver, page, err := InitChromeDriver(cfg)
 	if err != nil {
-		return xerrors.Errorf("faild to run chromedriver:%v", err)
+		return xerrors.Errorf("faild to initialize chrome driver:%v", err)
+	}
+
+	// start collect voucher
+	err = RunCollectVoucher(driver, page, cacheDir, cfg.Nikkei)
+	if err != nil {
+		return xerrors.Errorf("faild to collect Voucher:%v", err)
+	}
+
+	// concat images
+	err = ConcatImage(cacheDir)
+	if err != nil {
+		return xerrors.Errorf("faild to concat images:%v", err)
 	}
 	return nil
 }
 
-func RunChromeDriver(cfg config, cacheDir string) error {
-	var driver *agouti.WebDriver
-
+func InitChromeDriver(cfg config) (driver *agouti.WebDriver, page *agouti.Page, err error) {
 	driver = agouti.ChromeDriver(cfg.ChromeDriver.DriverPath)
-	if err := driver.Start(); err != nil {
-		return xerrors.Errorf("chrome driver start error:%v", err)
+	if err = driver.Start(); err != nil {
+		return driver, page, xerrors.Errorf("chrome driver start error:%v", err)
 	}
-	defer driver.Stop()
-
-	page, err := driver.NewPage(agouti.Browser("chrome"))
+	page, err = driver.NewPage(agouti.Browser("chrome"))
 	if err != nil {
-		return xerrors.Errorf("initialize chrome browser error:%v", err)
+		return driver, page, xerrors.Errorf("initialize chrome browser error:%v", err)
 	}
 
-	for i := cfg.Nikkei.Times; i > 0; i-- {
-		err := ScreenshotNikkeiVoucher(page, cacheDir, cfg.Nikkei, i)
+	return driver, page, nil
+}
+
+func RunCollectVoucher(driver *agouti.WebDriver, page *agouti.Page, cacheDir string, nikkeiCfg nikkei) error {
+	defer driver.Stop()
+	for i := nikkeiCfg.Times; i > 0; i-- {
+		err := ScreenshotNikkeiVoucher(page, cacheDir, nikkeiCfg, i)
 		if err != nil {
 			return xerrors.Errorf("take secrennshot nikkei voucher error:%v", err)
 		}
-		first, err := time.Parse("200601", cfg.Nikkei.Start)
+		first, err := time.Parse("200601", nikkeiCfg.Start)
 		if err != nil {
 			return xerrors.Errorf("invalid config start value.time parse error:%v", err)
 		}
 		next := first.AddDate(0, 1, 0)
-		cfg.Nikkei.Start = next.Format("200601")
+		nikkeiCfg.Start = next.Format("200601")
 	}
-
-	ConcatImage(cacheDir)
 	return nil
 }
 
-func ScreenshotNikkeiVoucher(page *agouti.Page, cacheDir string, nikkeiConfig nikkei, count int) error {
-	if err := page.Navigate("https://id.nikkei.com/charge/payment/history/search/" + nikkeiConfig.Start); err != nil {
+func ScreenshotNikkeiVoucher(page *agouti.Page, cacheDir string, nikkeiCfg nikkei, count int) error {
+	if err := page.Navigate("https://id.nikkei.com/charge/payment/history/search/" + nikkeiCfg.Start); err != nil {
 		return xerrors.Errorf("navigate voucher page error:%v", err)
 	}
 
-	if count == nikkeiConfig.Times {
-		page.FindByID("LA7110Form01:LA7110Email").Fill(nikkeiConfig.Email)
-		page.FindByID("LA7110Form01:LA7110Password").Fill(nikkeiConfig.Password)
+	if count == nikkeiCfg.Times {
+		page.FindByID("LA7110Form01:LA7110Email").Fill(nikkeiCfg.Email)
+		page.FindByID("LA7110Form01:LA7110Password").Fill(nikkeiCfg.Password)
 		page.Find("#LA7110Form01 > div > div.form__area > div > div.btn-box.btn-box--flex > input").Click()
 
 		text, err := page.Find("#LA7110Form01 > div.form > div.form__area > div > dl:nth-child(1) > dd").Text()
@@ -92,7 +104,7 @@ func ScreenshotNikkeiVoucher(page *agouti.Page, cacheDir string, nikkeiConfig ni
 	page.Find("#contentInner > div.table-history > table > tbody > tr > td.service > p.receipt_link > a").Click()
 	page.Find("#contentInner > div.table-history > p > a").Click()
 	page.NextWindow()
-	page.Screenshot(filepath.Join(cacheDir, nikkeiConfig.Start+".png"))
+	page.Screenshot(filepath.Join(cacheDir, nikkeiCfg.Start+".png"))
 	page.NextWindow()
 	return nil
 }
@@ -101,11 +113,11 @@ func cmdNikkeiClean(c *cli.Context) error {
 	var cfg config
 	err := cfg.load()
 	if err != nil {
-		return xerrors.Errorf("excute nikkeiCleancmd config parse error:%v", err)
+		return xerrors.Errorf("execute nikkei clean config parse error:%v", err)
 	}
 	cacheDir := filepath.Join(cfg.Base.WorkDir, "nikkei", "cache")
 	if err := os.RemoveAll(cacheDir); err != nil {
-		return xerrors.Errorf("remove faild directory %v: %v", cacheDir, err)
+		return xerrors.Errorf("faild to remove directory %v: %v", cacheDir, err)
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -26,10 +27,32 @@ type chromeDriver struct {
 	DriverPath string `toml:"driverPath"`
 }
 
+type env struct {
+	Proxy string `toml:"proxy"`
+}
+
+type opc struct {
+	Args            string `toml:"args"`
+	Url             string `toml:"url"`
+	UserId          string `toml:"userId"`
+	Password        string `toml:"password"`
+	Subject         string `toml:"subject"`
+	Content         string `toml:"content"`
+	Policy          string `toml:"policy"`
+	UsrId           string `toml:"usrId"`
+	Date            string `toml:"date"`
+	AccessStartTime string `toml:"accessStartTime"`
+	AccessEndTime   string `toml:"accessEndTime"`
+	Remark          string `toml:"remark"`
+	Count           int    `toml:"count"`
+}
+
 type config struct {
 	Base         base         `toml:"base"`
 	Nikkei       nikkei       `toml:"nikkei"`
 	ChromeDriver chromeDriver `toml:"chromeDriver"`
+	Env          env          `toml:"env"`
+	Opc          []opc        `toml:"opc"`
 }
 
 func (cfg *config) load() error {
@@ -61,16 +84,13 @@ func (cfg *config) load() error {
 			return xerrors.Errorf("toml config parse error:%v", err)
 		}
 	} else if _, err := os.Stat(filepath.Join(dir, configFile)); err == nil {
-		if err == nil {
-			config, err := ioutil.ReadFile(filepath.Join(dir, configFile))
-			if err != nil {
-				return xerrors.Errorf("read config file error: %v", err)
-			}
-
-			_, err = toml.Decode(string(stripBOM(config)), cfg)
-			if err != nil {
-				return xerrors.Errorf("toml config parse error:%v", err)
-			}
+		config, err := ioutil.ReadFile(filepath.Join(dir, configFile))
+		if err != nil {
+			return xerrors.Errorf("read config file error: %v", err)
+		}
+		_, err = toml.Decode(string(stripBOM(config)), cfg)
+		if err != nil {
+			return xerrors.Errorf("toml config parse error:%v", err)
 		}
 	} else {
 		f, err := os.Create(configFile)
@@ -107,10 +127,34 @@ func (cfg *config) load() error {
 			driverURL += "chromedriver_linux64.zip"
 		}
 
-		resp, err := http.Get(driverURL)
+		// create http client
+		client := &http.Client{}
+		if cfg.Env.Proxy != "" {
+			proxyUrl, err := url.Parse(cfg.Env.Proxy)
+			if err != nil {
+				return err
+			}
+			client.Transport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
+		}
+
+		// create chrome url object
+		requestUrl, err := url.Parse(driverURL)
 		if err != nil {
 			return err
 		}
+
+		// create http request
+		req, err := http.NewRequest("GET", requestUrl.String(), nil)
+		if err != nil {
+			return err
+		}
+
+		// download chromedriver
+		resp, err := client.Do(req)
+		if err != nil {
+			return err
+		}
+
 		defer resp.Body.Close()
 
 		out, err := os.Create(filepath.Join(cfg.ChromeDriver.DriverPath, "chromedriver.zip"))

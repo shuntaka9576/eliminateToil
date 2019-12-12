@@ -25,6 +25,12 @@ var commands = []cli.Command{
 			},
 		},
 	},
+	{
+		Name:    "opc",
+		Aliases: []string{"opc"},
+		Usage:   "collect nikkei voucher",
+		Action:  cmdOpc,
+	},
 }
 
 func main() {
